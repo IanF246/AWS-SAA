@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+
+node_modules/
+__pycache__/
+*.pyc
+
+.vscode/
+.idea/
+
+.DS_Store
+Thumbs.db
+
+.aws/
+*.pem
+*.key
