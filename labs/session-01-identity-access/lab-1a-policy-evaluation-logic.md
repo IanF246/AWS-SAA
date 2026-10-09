@@ -392,16 +392,64 @@ Condition keys narrow *when* a statement applies. Let's test a **region restrict
 }
 ```
 
+The file above is the readable version of the policy. The simulator API wants each policy as a **JSON string inside a list**, plus the context you want to test. The safest way to send that from any shell is a single input file with `--cli-input-json`.
+
+> ⚠️ **Why not `--policy-input-list file://region-guard.json`?** That parameter is a *list*, so the CLI doesn't pass the file through as one policy. It splits the contents into fragments, and IAM rejects them with `InvalidInput: Policy input list item 1 has invalid content`.
+
+**Create `sim-us-east-1.json`** (the same policy as above, escaped onto one line, testing us-east-1):
+
+```json
+{
+  "PolicyInputList": [
+    "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"ec2:*\",\"Resource\":\"*\"},{\"Effect\":\"Deny\",\"Action\":\"ec2:*\",\"Resource\":\"*\",\"Condition\":{\"StringNotEquals\":{\"aws:RequestedRegion\":[\"us-east-1\",\"us-west-2\"]}}}]}"
+  ],
+  "ActionNames": [
+    "ec2:RunInstances"
+  ],
+  "ContextEntries": [
+    {
+      "ContextKeyName": "aws:RequestedRegion",
+      "ContextKeyValues": [
+        "us-east-1"
+      ],
+      "ContextKeyType": "string"
+    }
+  ]
+}
+```
+
+**Create `sim-eu-west-1.json`** (identical except the region in `ContextKeyValues`):
+
+```json
+{
+  "PolicyInputList": [
+    "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"ec2:*\",\"Resource\":\"*\"},{\"Effect\":\"Deny\",\"Action\":\"ec2:*\",\"Resource\":\"*\",\"Condition\":{\"StringNotEquals\":{\"aws:RequestedRegion\":[\"us-east-1\",\"us-west-2\"]}}}]}"
+  ],
+  "ActionNames": [
+    "ec2:RunInstances"
+  ],
+  "ContextEntries": [
+    {
+      "ContextKeyName": "aws:RequestedRegion",
+      "ContextKeyValues": [
+        "eu-west-1"
+      ],
+      "ContextKeyType": "string"
+    }
+  ]
+}
+```
+
 🔮 **Predict:** `ec2:RunInstances` in `us-east-1`? In `eu-west-1`?
 
 📋 Simulate us-east-1:
 ```
-aws iam simulate-custom-policy --policy-input-list file://region-guard.json --action-names ec2:RunInstances --context-entries "ContextKeyName=aws:RequestedRegion,ContextKeyValues=us-east-1,ContextKeyType=string" --query "EvaluationResults[0].EvalDecision" --output text
+aws iam simulate-custom-policy --cli-input-json file://sim-us-east-1.json --query "EvaluationResults[0].EvalDecision" --output text
 ```
 
 📋 Simulate eu-west-1:
 ```
-aws iam simulate-custom-policy --policy-input-list file://region-guard.json --action-names ec2:RunInstances --context-entries "ContextKeyName=aws:RequestedRegion,ContextKeyValues=eu-west-1,ContextKeyType=string" --query "EvaluationResults[0].EvalDecision" --output text
+aws iam simulate-custom-policy --cli-input-json file://sim-eu-west-1.json --query "EvaluationResults[0].EvalDecision" --output text
 ```
 
 **✅ You should see** `allowed` and then `explicitDeny`.
@@ -454,6 +502,7 @@ aws iam simulate-custom-policy --policy-input-list file://region-guard.json --ac
 | `is not authorized to perform: sts:AssumeRole` | The trust policy has the wrong account ID, or IAM hasn't propagated yet | Check `trust-policy.json`, wait 15 seconds and retry |
 | `MalformedPolicy` on the bucket policy | The role doesn't exist yet, or there's an ARN typo | Confirm the role with `aws iam get-role --role-name saa-lab1a-role` |
 | Step 8 deny doesn't apply | Propagation delay | Wait 15–30 seconds and retry |
+| `InvalidInput: Policy input list item 1 has invalid content` (Step 9) | `--policy-input-list` split the policy file into fragments | Use the `--cli-input-json` files exactly as shown in Step 9 |
 | `Error when retrieving token from sso` | Your SSO session expired | `aws sso login --profile <YOUR_PROFILE_NAME>` |
 
 ---
