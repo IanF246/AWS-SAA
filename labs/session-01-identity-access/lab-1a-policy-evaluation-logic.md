@@ -229,26 +229,85 @@ aws sts get-caller-identity --profile saa-lab1a
 
 ### Step 6: Round 1 — Identity Policy Only
 
-For each command below, **🔮 predict first** (✅ allowed or ❌ AccessDenied), write your guess down, *then* run it.
+For each command below, **🔮 predict first**, *then* run it.
 
-| # | Command | Your Prediction |
-|---|---------|-----------------|
-| 1 | `aws s3 ls s3://saa-lab1a-<ACCOUNT_ID>/ --recursive --profile saa-lab1a` | |
-| 2 | `aws s3 cp s3://saa-lab1a-<ACCOUNT_ID>/public/note.txt - --profile saa-lab1a` | |
-| 3 | `aws s3 cp s3://saa-lab1a-<ACCOUNT_ID>/private/note.txt - --profile saa-lab1a` | |
-| 4 | `aws s3 cp note.txt s3://saa-lab1a-<ACCOUNT_ID>/public/new.txt --profile saa-lab1a` | |
+> 🎯 **How to play:** for each prediction, tick **one** box by changing `[ ]` to `[x]` in the file (VS Code makes this quick: put your cursor in the brackets and type `x`). Commit to your answer *before* you run the command, then open that prediction's **Reveal**. +10 XP for every correct tick.
 
 > 💡 The `-` at the end of a `cp` means "print to the screen" instead of saving a file.
 
-<details>
-<summary>🔮 Reveal the answers (+10 XP each one you got right)</summary>
+#### 🔮 Prediction 1: list the bucket
 
-1. ✅ **Allowed.** `s3:ListBucket` on the bucket ARN.
-2. ✅ **Allowed.** `public/*` matches.
-3. ❌ **AccessDenied.** Nothing allows `private/*`, so it's an **implicit deny**.
-4. ❌ **AccessDenied.** Nothing allows `s3:PutObject`. Also an implicit deny.
+```
+aws s3 ls s3://saa-lab1a-<ACCOUNT_ID>/ --recursive --profile saa-lab1a
+```
+
+- [ ] ✅ Allowed
+- [ ] ❌ AccessDenied: **implicit** deny (nothing allows it)
+- [ ] ❌ AccessDenied: **explicit** deny (a Deny statement blocks it)
+
+<details>
+<summary>🔮 Reveal #1</summary>
+
+✅ **Allowed.** The identity policy grants `s3:ListBucket` on the **bucket** ARN.
 
 </details>
+
+#### 🔮 Prediction 2: read a public file
+
+```
+aws s3 cp s3://saa-lab1a-<ACCOUNT_ID>/public/note.txt - --profile saa-lab1a
+```
+
+- [ ] ✅ Allowed
+- [ ] ❌ AccessDenied: **implicit** deny (nothing allows it)
+- [ ] ❌ AccessDenied: **explicit** deny (a Deny statement blocks it)
+
+<details>
+<summary>🔮 Reveal #2</summary>
+
+✅ **Allowed.** `s3:GetObject` on `public/*` matches.
+
+</details>
+
+#### 🔮 Prediction 3: read a private file
+
+```
+aws s3 cp s3://saa-lab1a-<ACCOUNT_ID>/private/note.txt - --profile saa-lab1a
+```
+
+- [ ] ✅ Allowed
+- [ ] ❌ AccessDenied: **implicit** deny (nothing allows it)
+- [ ] ❌ AccessDenied: **explicit** deny (a Deny statement blocks it)
+
+<details>
+<summary>🔮 Reveal #3</summary>
+
+❌ **Implicit deny.** No policy *denies* it, but nothing *allows* `private/*`, so the default "no" applies. If you ticked "explicit," look again: there's no `Deny` statement anywhere yet.
+
+</details>
+
+#### 🔮 Prediction 4: upload a file
+
+```
+aws s3 cp note.txt s3://saa-lab1a-<ACCOUNT_ID>/public/new.txt --profile saa-lab1a
+```
+
+- [ ] ✅ Allowed
+- [ ] ❌ AccessDenied: **implicit** deny (nothing allows it)
+- [ ] ❌ AccessDenied: **explicit** deny (a Deny statement blocks it)
+
+<details>
+<summary>🔮 Reveal #4</summary>
+
+❌ **Implicit deny.** The role can *read* `public/*` but nothing allows `s3:PutObject`. Being allowed to read a path doesn't mean you can write to it.
+
+</details>
+
+### 📊 Round 1 Score
+
+| Prediction | 1 | 2 | 3 | 4 | Total |
+|------------|---|---|---|---|-------|
+| Correct? (✅/❌) | | | | | __ / 4 → **+__ XP** |
 
 ---
 
@@ -278,7 +337,13 @@ Now grant the role access to `private/*` through the **bucket policy**, without 
 aws s3api put-bucket-policy --bucket saa-lab1a-<ACCOUNT_ID> --policy file://bucket-policy.json
 ```
 
-🔮 **Predict:** Will command #3 from Step 6 work now? The role's identity policy still doesn't mention `private/`.
+#### 🔮 Prediction 5: read the private file again
+
+Will Prediction 3's command work now? The role's identity policy still doesn't mention `private/`.
+
+- [ ] ✅ Allowed: the bucket policy alone is enough
+- [ ] ❌ Still denied: the identity policy must allow it too
+- [ ] ❌ Denied: the bucket policy creates an explicit deny for everyone else
 
 📋 Run it:
 ```
@@ -286,9 +351,9 @@ aws s3 cp s3://saa-lab1a-<ACCOUNT_ID>/private/note.txt - --profile saa-lab1a
 ```
 
 <details>
-<summary>🔮 Reveal</summary>
+<summary>🔮 Reveal #5</summary>
 
-✅ **It works.** In the **same account**, an allow in the identity policy **OR** the resource policy is enough. The bucket policy names the role as a `Principal`, so the request is allowed.
+✅ **Allowed: the bucket policy alone is enough.** In the **same account**, an allow in the identity policy **OR** the resource policy is enough. The bucket policy names the role as a `Principal`, so the request is allowed.
 
 If this were **cross-account**, the role's own identity policy would *also* need to allow it.
 
@@ -333,20 +398,35 @@ The security team says nobody may read `top-secret.txt`. Add an **explicit deny*
 aws iam put-role-policy --role-name saa-lab1a-role --policy-name identity --policy-document file://identity-v2.json
 ```
 
-Wait about 10 seconds. 🔮 **Predict** both results, then run them:
+Wait about 10 seconds, then predict both results before running them.
+
+#### 🔮 Prediction 6: `private/note.txt`
 
 ```
 aws s3 cp s3://saa-lab1a-<ACCOUNT_ID>/private/note.txt - --profile saa-lab1a
 ```
+
+- [ ] ✅ Allowed
+- [ ] ❌ AccessDenied: **implicit** deny (nothing allows it)
+- [ ] ❌ AccessDenied: **explicit** deny (a Deny statement blocks it)
+
+#### 🔮 Prediction 7: `private/top-secret.txt`
+
+The bucket policy **allows** `private/*`. The identity policy **denies** `top-secret.txt`.
+
 ```
 aws s3 cp s3://saa-lab1a-<ACCOUNT_ID>/private/top-secret.txt - --profile saa-lab1a
 ```
 
-<details>
-<summary>🔮 Reveal</summary>
+- [ ] ✅ Allowed: the bucket policy's allow wins because it's more specific to the bucket
+- [ ] ✅ Allowed: allows and denies cancel out, and the resource policy decides
+- [ ] ❌ AccessDenied: the explicit deny wins
 
-- `private/note.txt` → ✅ still allowed by the bucket policy.
-- `private/top-secret.txt` → ❌ **AccessDenied.** The bucket policy *allows* `private/*`, but the identity policy has an **explicit deny**, and an explicit deny always wins, wherever it's written.
+<details>
+<summary>🔮 Reveal #6 and #7</summary>
+
+- **#6** `private/note.txt` → ✅ still allowed by the bucket policy. The deny only targets one file.
+- **#7** `private/top-secret.txt` → ❌ **AccessDenied.** The bucket policy *allows* `private/*`, but the identity policy has an **explicit deny**, and an explicit deny always wins, wherever it's written.
 
 </details>
 
@@ -392,7 +472,17 @@ Condition keys narrow *when* a statement applies. Let's test a **region restrict
 }
 ```
 
-🔮 **Predict:** `ec2:RunInstances` in `us-east-1`? In `eu-west-1`?
+#### 🔮 Prediction 8: `ec2:RunInstances` in **us-east-1**
+
+- [ ] `allowed`
+- [ ] `implicitDeny`
+- [ ] `explicitDeny`
+
+#### 🔮 Prediction 9: `ec2:RunInstances` in **eu-west-1**
+
+- [ ] `allowed`
+- [ ] `implicitDeny`
+- [ ] `explicitDeny`
 
 📋 Simulate us-east-1:
 ```
@@ -404,7 +494,21 @@ aws iam simulate-custom-policy --policy-input-list file://region-guard.json --ac
 aws iam simulate-custom-policy --policy-input-list file://region-guard.json --action-names ec2:RunInstances --context-entries "ContextKeyName=aws:RequestedRegion,ContextKeyValues=eu-west-1,ContextKeyType=string" --query "EvaluationResults[0].EvalDecision" --output text
 ```
 
-**✅ You should see** `allowed` and then `explicitDeny`.
+<details>
+<summary>🔮 Reveal #8 and #9</summary>
+
+- **#8 us-east-1** → `allowed`. It's in the approved list, so the Deny's `StringNotEquals` condition is **false** and the Deny doesn't apply. The Allow stands.
+- **#9 eu-west-1** → `explicitDeny`. Not in the list, so the condition is **true** and the Deny applies. It isn't `implicitDeny`, because a Deny statement matched.
+
+</details>
+
+### 📊 Lab 1A Prediction Scorecard
+
+| # | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | Total |
+|---|---|---|---|---|---|---|---|---|---|-------|
+| ✅/❌ | | | | | | | | | | __ / 9 → **+__ XP** |
+
+**9/9:** 🧠 Policy Whisperer · **7–8:** solid · **≤ 6:** reread the flowchart in **Concepts** before Lab 1B.
 
 > 💡 The simulator returns three possible decisions: `allowed`, `explicitDeny` and `implicitDeny`. Those are the three outcomes from the flowchart in **Concepts**.
 
