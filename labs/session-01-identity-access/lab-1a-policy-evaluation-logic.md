@@ -63,9 +63,12 @@ Then you'll use the **IAM Policy Simulator** from the CLI to test condition keys
                          ❌ DENY (implicit — the default)
 ```
 
-**Implicit deny:** Everything is denied unless something allows it.  
+**Implicit deny:** Everything is denied unless something allows it. 
+
 **Explicit deny:** A `"Effect": "Deny"` statement. It **always wins**, no matter how many allows exist.  
+
 **Identity-based policy:** Attached to a user, group or role. Says what *that identity* can do.  
+
 **Resource-based policy:** Attached to a resource (S3 bucket, SQS queue, KMS key, Lambda function). Says *who* can access *this resource*. It has a `Principal` element; identity policies don't.
 
 > 💡 **Same account vs. cross-account:** Within one account, an allow in **either** the identity policy **or** the resource policy is enough. Across accounts, you need an allow on **both** sides. You'll see the same-account rule in action in this lab, and the cross-account rule in Lab 1B.
